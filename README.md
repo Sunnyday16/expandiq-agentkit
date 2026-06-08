@@ -134,7 +134,6 @@ I used Codex as a pair-programming assistant for planning, implementation, testi
 ```bash
 git clone https://github.com/Sunnyday16/expandiq-agentkit.git
 cd expandiq-agentkit
-git checkout feature/agentkit-runtime
 ```
 
 ## Run
