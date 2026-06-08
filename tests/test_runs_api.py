@@ -118,6 +118,29 @@ def test_create_and_fetch_transient_error_run(tmp_path: Path) -> None:
     assert body["steps"][1]["tool_name"] == "final_answer"
 
 
+def test_bad_email_goal_uses_requested_recipient_after_semantic_error(tmp_path: Path) -> None:
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'agentkit-test.db'}"
+    app = create_app(database_url=database_url)
+
+    with TestClient(app) as client:
+        create_response = client.post("/runs", json={"goal": "bad email Sunny"})
+        run_id = create_response.json()["run_id"]
+
+        get_response = client.get(f"/runs/{run_id}")
+
+    body = get_response.json()
+    assert body["status"] == "succeeded"
+    assert body["reason"] == "succeeded"
+    assert body["steps"][0]["tool_name"] == "send_email"
+    assert body["steps"][0]["args"]["to"] == "sunny@example.com"
+    assert body["steps"][0]["result"]["ok"] is False
+    assert body["steps"][0]["result"]["error"]["code"] == "missing_idempotency_key"
+    assert body["steps"][1]["tool_name"] == "send_email"
+    assert body["steps"][1]["args"]["to"] == "sunny@example.com"
+    assert body["steps"][1]["result"]["ok"] is True
+    assert body["steps"][2]["result"]["content"] == "Email error was corrected and queued for Sunny."
+
+
 def test_email_goal_uses_requested_recipient(tmp_path: Path) -> None:
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'agentkit-test.db'}"
     app = create_app(database_url=database_url)

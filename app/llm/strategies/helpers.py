@@ -1,6 +1,7 @@
 import re
 from typing import Any
 
+BAD_EMAIL_PATTERN = re.compile(r"\bbad\s+email\s+(?P<name>[a-z][a-z0-9_-]*)", re.IGNORECASE)
 EMAIL_PATTERN = re.compile(r"\bemail\s+(?P<name>[a-z][a-z0-9_-]*)", re.IGNORECASE)
 
 
@@ -13,6 +14,12 @@ def last_tool_failed(past_steps: list[dict[str, Any]], code: str) -> bool:
         return False
     error = past_steps[-1].get("result", {}).get("error")
     return bool(error and error.get("code") == code)
+
+
+def bad_email_recipient(goal: str) -> tuple[str, str]:
+    match = BAD_EMAIL_PATTERN.search(goal)
+    name = match.group("name") if match else "recipient"
+    return name.capitalize(), f"{name.lower()}@example.com"
 
 
 def email_recipient(goal: str) -> tuple[str, str]:
