@@ -12,6 +12,7 @@ The hard part of a tool-calling agent runtime is not only choosing the next tool
 - `GET /runs/{run_id}` reads the persisted run, terminal reason, total cost and ordered steps.
 - `GET /runs` lists recent runs with `limit` and `offset` pagination.
 - Background run execution so clients can poll `GET /runs/{run_id}` while work is in flight.
+- Optional `Idempotency-Key` support on `POST /runs` to replay duplicate create requests safely.
 - A ten-tool registry with `parallel_safe` and `idempotent` metadata.
 - BM25-style top-K tool retrieval before each mock LLM call.
 - Structured tool results and bounded retries for recoverable tool errors.
@@ -121,7 +122,7 @@ The response contains persisted execution state rather than an in-memory trace:
   specified for the assessment. In a larger service, I would expose versioned
   routes such as `/api/v1/runs` to allow non-breaking API evolution.
 - Observability: structured traces per run would make the agent loop easier to debug in production.
-- Idempotency for `POST /runs` would be a useful stretch goal for replay protection.
+- Idempotency retention windows and cleanup would be needed before using the `POST /runs` idempotency table in production.
 - Hybrid tool retrieval: for a larger production registry, I would combine BM25 for exact keyword/tool-name matches with semantic embeddings for intent matching, then combine scores or ranks and evaluate tool-selection accuracy offline.
 - Event-driven execution: `FastAPI BackgroundTasks` is enough for this prototype because each run is local, deterministic and small. In production, I would move agent execution to an event-driven worker architecture where `POST /runs` persists the run and publishes a `RunRequested` event to Kafka. Worker services would consume the event, execute the agent loop, persist step events and update run status. The frontend could continue polling or receive updates through SSE/WebSockets. Kafka would help scale workers horizontally, retry failed processing and decouple request handling from long-running agent execution.
 

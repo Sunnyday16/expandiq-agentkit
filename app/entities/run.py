@@ -38,3 +38,12 @@ class Step(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     run: Mapped[Run] = relationship(back_populates="steps")
+
+
+class IdempotencyKey(Base):
+    __tablename__ = "idempotency_keys"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    request_hash: Mapped[str] = mapped_column(String, nullable=False)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

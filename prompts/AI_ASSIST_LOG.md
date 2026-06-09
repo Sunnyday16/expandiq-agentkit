@@ -80,6 +80,7 @@ I also made these design calls:
 - Keep the required backend endpoints exactly as `/runs`, not `/api/v1/runs`, because the assignment specifies those paths.
 - Use SQLite with async SQLAlchemy because it satisfies persistence requirements without Docker or external services.
 - Use deterministic BM25-style retrieval instead of embeddings so the reviewer can replay and reason about each run while getting better ranking behavior than plain keyword overlap.
+- Add optional `Idempotency-Key` support for `POST /runs` as a small stretch goal, using a separate table to replay duplicate create requests and reject conflicting payloads.
 - Treat guard outcomes as persisted run states instead of exceptions, because the UI and API should show why the agent stopped.
 - Use structured `ToolResult` errors for tool failures so semantic and recoverable errors are visible in the timeline.
 - Add a Spring-like exception style only for application errors such as missing runs, keeping agent-loop outcomes separate.
@@ -102,6 +103,7 @@ The work was driven through incremental prompts and review checkpoints:
 11. Refactor the lengthy mock LLM file into a lightweight Strategy package so each deterministic mock behavior has one main reason to change, and new behaviors can be added by creating a strategy module and registering it.
 12. Find and fix email-recipient bugs discovered during manual testing.
 13. Finalize README, report and AI-assist documentation.
+14. Add optional `POST /runs` idempotency support after reviewing the stretch-goal trade-off.
 
 ## Review and Corrections
 

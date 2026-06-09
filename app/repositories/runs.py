@@ -4,7 +4,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.entities.run import Run
+from app.entities.run import IdempotencyKey, Run
 from app.models.runs import CreateRunRequest
 from app.runtime.guardrails import utc_now
 
@@ -23,6 +23,40 @@ async def create_run(session: AsyncSession, request: CreateRunRequest) -> Run:
     await session.commit()
     await session.refresh(run)
     return run
+
+
+async def create_run_with_idempotency_key(
+    session: AsyncSession,
+    request: CreateRunRequest,
+    *,
+    idempotency_key: str,
+    request_hash: str,
+) -> Run:
+    run = Run(
+        id=str(uuid4()),
+        goal=request.goal,
+        status="running",
+        reason=None,
+        total_cost=0.0,
+        started_at=utc_now(),
+        finished_at=None,
+    )
+    session.add(run)
+    session.add(
+        IdempotencyKey(
+            key=idempotency_key,
+            request_hash=request_hash,
+            run_id=run.id,
+            created_at=utc_now(),
+        )
+    )
+    await session.commit()
+    await session.refresh(run)
+    return run
+
+
+async def get_idempotency_key(session: AsyncSession, key: str) -> IdempotencyKey | None:
+    return await session.get(IdempotencyKey, key)
 
 
 async def get_run(session: AsyncSession, run_id: str) -> Run | None:

@@ -35,6 +35,8 @@ This follows the same layered architecture I would use in a Spring Boot-based mi
 
 I chose SQLite for this prototype because it keeps local setup simple and lets reviewers run the service without Docker or a managed database. It still satisfies the assignment requirement for persisted `runs` and `steps`. In production, I would use PostgreSQL or another managed relational database with migrations, stronger concurrency controls, indexing, backups and operational monitoring.
 
+`POST /runs` supports an optional `Idempotency-Key` header. The service stores the key, a stable hash of the request body and the created `run_id` in a separate `idempotency_keys` table. Replaying the same key with the same body returns the original run instead of creating duplicate work; reusing the key with a different body returns `409 Conflict`.
+
 The mock LLM uses a lightweight Strategy pattern. Each `MockStrategy` owns one deterministic behavior, such as stuck-loop testing, transient-error recovery, email handling or revenue-summary retrieval. The thin `mock_llm` entry point selects a registered strategy and delegates the decision. Adding a new behavior means adding a strategy module and registering it, without changing the orchestration logic or existing strategy classes.
 
 Tool retrieval uses a small dependency-free BM25-style ranker over tool names and descriptions. I chose BM25 over plain keyword overlap because it is still deterministic and local, but handles noisy tool descriptions better through inverse document frequency and length normalization. A small direct-name boost keeps tools such as `send_email` high when the user's goal explicitly says "send email".
@@ -68,6 +70,7 @@ The test suite covers:
 - Stuck detection.
 - Cost cap termination.
 - Step cap termination.
+- `POST /runs` idempotency replay and conflict handling.
 - Unexpected runtime error termination.
 - Tool retrieval ranking.
 - Guard behavior.

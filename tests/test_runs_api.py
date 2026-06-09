@@ -41,6 +41,59 @@ def test_create_and_fetch_completed_run(tmp_path: Path) -> None:
     assert body["steps"][3]["tool_name"] == "final_answer"
 
 
+def test_create_run_without_idempotency_key_creates_new_runs(tmp_path: Path) -> None:
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'agentkit-test.db'}"
+    app = create_app(database_url=database_url)
+
+    with TestClient(app) as client:
+        first_response = client.post("/runs", json={"goal": "Find the Q3 revenue summary"})
+        second_response = client.post("/runs", json={"goal": "Find the Q3 revenue summary"})
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+    assert first_response.json()["run_id"] != second_response.json()["run_id"]
+
+
+def test_create_run_replays_same_idempotency_key_and_body(tmp_path: Path) -> None:
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'agentkit-test.db'}"
+    app = create_app(database_url=database_url)
+    payload = {"goal": "Find the Q3 revenue summary"}
+    headers = {"Idempotency-Key": "test-key-001"}
+
+    with TestClient(app) as client:
+        first_response = client.post("/runs", json=payload, headers=headers)
+        second_response = client.post("/runs", json=payload, headers=headers)
+        list_response = client.get("/runs")
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 200
+    assert first_response.json()["run_id"] == second_response.json()["run_id"]
+    assert len(list_response.json()["items"]) == 1
+
+
+def test_create_run_rejects_idempotency_key_with_different_body(tmp_path: Path) -> None:
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'agentkit-test.db'}"
+    app = create_app(database_url=database_url)
+    headers = {"Idempotency-Key": "test-key-002"}
+
+    with TestClient(app) as client:
+        client.post("/runs", json={"goal": "Find the Q3 revenue summary"}, headers=headers)
+        conflict_response = client.post(
+            "/runs",
+            json={"goal": "Test transient web search recovery"},
+            headers=headers,
+        )
+
+    assert conflict_response.status_code == 409
+    assert conflict_response.json() == {
+        "error": {
+            "code": "idempotency_key_conflict",
+            "message": "Idempotency key test-key-002 was already used with a different request.",
+            "status_code": 409,
+        }
+    }
+
+
 def test_get_missing_run_returns_404(tmp_path: Path) -> None:
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'agentkit-test.db'}"
     app = create_app(database_url=database_url)

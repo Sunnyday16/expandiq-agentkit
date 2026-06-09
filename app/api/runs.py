@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Header, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.database.session import SessionDependency
@@ -20,12 +20,23 @@ async def create_run(
     payload: CreateRunRequest,
     background_tasks: BackgroundTasks,
     request: Request,
+    response: Response,
     session: SessionDependency,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> CreateRunResponse:
     sessionmaker: async_sessionmaker[AsyncSession] = request.app.state.sessionmaker
     llm: MockLLM = request.app.state.llm
-    run = await create_and_schedule_run(session, sessionmaker, background_tasks, payload, llm=llm)
-    return CreateRunResponse(run_id=run.id)
+    created_run = await create_and_schedule_run(
+        session,
+        sessionmaker,
+        background_tasks,
+        payload,
+        idempotency_key=idempotency_key,
+        llm=llm,
+    )
+    if created_run.replayed:
+        response.status_code = 200
+    return CreateRunResponse(run_id=created_run.run.id)
 
 
 @router.get("", response_model=RunListResponse)
